@@ -13,6 +13,8 @@ import argparse
 import torch.optim as optim
 from random import shuffle
 import pickle
+from torchtext.bleu_score import bleu_score
+from torch.nn.utils.rnn import pad_sequence
 
 from models import *
 from utilities import *
@@ -75,6 +77,7 @@ class Trainer():
 
 
     def train(self, epochs, saved_model_directory):
+        self.transformer.train()
         start_time = time.time()
 
         for epoch in range(epochs):
@@ -115,6 +118,58 @@ class Trainer():
             print('Epoch: {},   Time: {}s,  Estimated {} seconds remaining.'.format(epoch, end_time, (epochs-epoch)*end_time))
             print('\tTraining Loss: {:.4f}\n'.format(train_loss))
         print('Training finished!')
+        
+    def validate(self, validation_data_loader, device='cuda:0'):
+        self.transformer.eval()  # Set the model to evaluation mode
+        all_references = []
+        all_hypotheses = []
+
+        with torch.no_grad():
+            start_time = time.time()
+            val_loss = 0
+
+            for input, target in validation_data_loader:
+                input = input.to(device)
+                target = target.to(device)
+
+                # Generate predictions using the transformer model
+                output, _ = self.transformer(input, target[:,:-1])
+
+                # Remove the <SOS> token from the target sequence
+                target = target[:, 1:]
+
+                # Flatten the output and target tensors for computing loss
+                output_dim = output.shape[-1]
+                output = output.contiguous().view(-1, output_dim)
+                target = target.contiguous().view(-1)
+
+                # Compute loss
+                loss = self.loss_func(output, target)
+                val_loss += loss.item()
+
+                # Convert the output tensor back into a sequence of tokens
+                output_tokens = output.argmax(dim=-1).tolist()
+                target_tokens = target.tolist()
+
+                # Pad sequences to the same length for batch processing
+                output_sequences = [pad_sequence([torch.LongTensor(seq)], batch_first=True) for seq in output_tokens]
+                target_sequences = [pad_sequence([torch.LongTensor(seq)], batch_first=True) for seq in target_tokens]
+
+                # Collect references and hypotheses for BLEU score calculation
+                all_references.extend([[seq.tolist()] for seq in target_sequences])
+                all_hypotheses.extend([seq.tolist() for seq in output_sequences])
+
+            val_loss /= len(validation_data_loader)
+            bleu = bleu_score(all_hypotheses, all_references)
+
+            end_time = int(time.time() - start_time)
+            print('Validation Time: {}s'.format(end_time))
+            print('\tValidation Loss: {:.4f}'.format(val_loss))
+            print('\tBLEU Score: {:.4f}\n'.format(bleu * 100))  # Multiply by 100 to get percentage
+
+        self.transformer.train()  # Switch back to training mode if needed
+
+    print('Validation finished!')
 
 def main():
     parser = argparse.ArgumentParser(description='Hyperparameters for training Transformer')
