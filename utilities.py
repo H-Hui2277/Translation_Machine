@@ -31,7 +31,7 @@ def normalizeString(s):
 #reverse controls with language is input and output
 #FALSE: lang1 is input and lang2 is output
 #TRUE: lang2 is input and lang1 is output
-def load_files(lang1, lang2, data_dir, reverse=True, MAX_FILE_SIZE=100000, MAX_LENGTH=60):
+def load_files(lang1, lang2, data_dir, reverse=True, MAX_FILE_SIZE=100000, MAX_LENGTH=60): # MAX_FILE_SIZE = 300000 MAX_LENGTH = 60
     #load first language to list
     lang1_list = []
     lang1_file = open(data_dir + '/' + lang1 + '-' + lang2 + '/' + lang1 + '.txt', 'r', encoding='utf8')
@@ -76,13 +76,20 @@ def load_files(lang1, lang2, data_dir, reverse=True, MAX_FILE_SIZE=100000, MAX_L
         output_dic = Dictionary(lang2)
         return input_dic, output_dic, lang1_sentences, lang2_sentences
 
-#takes in a sentence and dictionary, and tokenizes based on dictionary
+# takes in a sentence and dictionary, and tokenizes based on dictionary
 def tokenize(sentence, dictionary, MAX_LENGTH=60):
-    split_sentence = [word for word in sentence.split(' ')]
+    # Split the sentence into words
+    split_sentence = sentence.split(' ')
+    # Initialize the token list with SOS_TOKEN
     token = [SOS_TOKEN]
-    token += [dictionary.word2index[word] for word in sentence.split(' ')]
+    # Add up to MAX_LENGTH - 2 (for SOS and EOS) elements from the sentence
+    token += [dictionary.word2index[word] for word in split_sentence[:MAX_LENGTH-2]]
+    # Append EOS_TOKEN
     token.append(EOS_TOKEN)
-    token += [PAD_TOKEN]*(MAX_LENGTH - len(split_sentence))
+    # Calculate the padding needed
+    padding_needed = max(0, MAX_LENGTH - len(token))
+    # Append PAD_TOKEN as many times as needed
+    token += [PAD_TOKEN] * padding_needed
     return token
 
 #create dataloader from a batch size and the two language lists

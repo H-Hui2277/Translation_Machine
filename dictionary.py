@@ -20,7 +20,7 @@ class Dictionary:
         self.n_count = 3
 
     def add_sentence(self, sentence):
-        for word in sentence.split(' '):
+        for word in sentence.split(' '): # TODO 增加使用jieba分词的功能
             self.add_word(word)
 
     def add_word(self, word):

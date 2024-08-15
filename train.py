@@ -4,8 +4,8 @@
 
 
 import torch
-import torchvision
-import torchvision.transforms as transforms
+# import torchvision
+# import torchvision.transforms as transforms
 import numpy as np 
 import time
 import matplotlib.pyplot as plt
@@ -13,7 +13,7 @@ import argparse
 import torch.optim as optim
 from random import shuffle
 import pickle
-from torchtext.bleu_score import bleu_score
+from torchtext.data import bleu_score
 from torch.nn.utils.rnn import pad_sequence
 
 from models import *

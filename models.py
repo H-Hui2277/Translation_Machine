@@ -202,8 +202,11 @@ class Transformer(nn.Module):
 
         #encoder feed through
         encoded_input = self.encoder(input, input_mask)
+        print(f'transformer.encoded_input: {encoded_input.shape}')
 
         #decoder feed_through
         output, attention = self.decoder(target, encoded_input, target_mask, input_mask)
+        print(f'transformer.target.shape: {target.shape}')
+        print(f'transformer.output.shape: {output.shape}')
 
         return output, attention
