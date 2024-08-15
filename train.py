@@ -4,8 +4,6 @@
 
 
 import torch
-import torchvision
-import torchvision.transforms as transforms
 import numpy as np 
 import time
 import matplotlib.pyplot as plt
@@ -13,7 +11,7 @@ import argparse
 import torch.optim as optim
 from random import shuffle
 import pickle
-from torchtext.bleu_score import bleu_score
+from torchtext.data import bleu_score
 from torch.nn.utils.rnn import pad_sequence
 
 from models import *
@@ -55,8 +53,8 @@ class Trainer():
         self.save_dictionary(self.input_lang_dic, input=True)
         self.save_dictionary(self.output_lang_dic, input=False)
 
-        self.tokenized_input_lang = [tokenize(sentence, self.input_lang_dic, self.MAX_LENGTH) for sentence in self.input_lang_list]
-        self.tokenized_output_lang = [tokenize(sentence, self.output_lang_dic, self.MAX_LENGTH) for sentence in self.output_lang_list]
+        self.tokenized_input_lang = [tokenize(sentence, self.input_lang_dic, self.MAX_LENGTH, lang=lang1 if not reverse else lang2) for sentence in self.input_lang_list]
+        self.tokenized_output_lang = [tokenize(sentence, self.output_lang_dic, self.MAX_LENGTH, lang=lang2 if not reverse else lang1) for sentence in self.output_lang_list]
 
         self.batch_size = batch_size
 
@@ -117,9 +115,11 @@ class Trainer():
 
             print('Epoch: {},   Time: {}s,  Estimated {} seconds remaining.'.format(epoch, end_time, (epochs-epoch)*end_time))
             print('\tTraining Loss: {:.4f}\n'.format(train_loss))
+            # self.validate()
+
         print('Training finished!')
         
-    def validate(self, validation_data_loader, device='cuda:0'):
+    def validate(self, device='cuda:0'):
         self.transformer.eval()  # Set the model to evaluation mode
         all_references = []
         all_hypotheses = []
@@ -128,7 +128,7 @@ class Trainer():
             start_time = time.time()
             val_loss = 0
 
-            for input, target in validation_data_loader:
+            for input, target in self.data_loader:
                 input = input.to(device)
                 target = target.to(device)
 
@@ -159,7 +159,7 @@ class Trainer():
                 all_references.extend([[seq.tolist()] for seq in target_sequences])
                 all_hypotheses.extend([seq.tolist() for seq in output_sequences])
 
-            val_loss /= len(validation_data_loader)
+            val_loss /= len(self.data_loader)
             bleu = bleu_score(all_hypotheses, all_references)
 
             end_time = int(time.time() - start_time)
@@ -174,17 +174,17 @@ class Trainer():
 def main():
     parser = argparse.ArgumentParser(description='Hyperparameters for training Transformer')
     #hyperparameter loading
-    parser.add_argument('--lang1', type=str, default='french', help='first language in language text file')
-    parser.add_argument('--lang2', type=str, default='english', help='second language in language text file')
+    parser.add_argument('--lang1', type=str, default='nederlands', help='first language in language text file')
+    parser.add_argument('--lang2', type=str, default='chinese', help='second language in language text file')
     parser.add_argument('--data_directory', type=str, default='data', help='data directory')
-    parser.add_argument('--reverse', type=int, default=1, help='whether to switch roles of lang1 and lang2 as input and output')
+    parser.add_argument('--reverse', type=int, default=True, help='whether to switch roles of lang1 and lang2 as input and output')
 
     #default hyperparameters (dont need to be inputed when called script)
     parser.add_argument('--MAX_LENGTH', type=int, default=60, help='max number of tokens in input')
-    parser.add_argument('--MAX_FILE_SIZE', type=int, default=100000, help='max number of lines to read from files')
+    parser.add_argument('--MAX_FILE_SIZE', type=int, default=300000, help='max number of lines to read from files')
     parser.add_argument('--batch_size', type=int, default=128, help='size of batches passed through networks at each step')
     parser.add_argument('--lr', type=float, default=0.0005, help='learning rate of models')
-    parser.add_argument('--hidden_size', type=int, default=256, help='number of hidden layers in transformer')
+    parser.add_argument('--hidden_size', type=int, default=128, help='number of hidden layers in transformer')
     parser.add_argument('--encoder_layers', type=int, default=3, help='number of encoder layers')
     parser.add_argument('--decoder_layers', type=int, default=3, help='number of decoder layers')
     parser.add_argument('--encoder_heads', type=int, default=8, help='number of encoder heads')
@@ -193,8 +193,8 @@ def main():
     parser.add_argument('--decoder_ff_size', type=int, default=512, help='fully connected input size for decoder')
     parser.add_argument('--encoder_dropout', type=float, default=0.1, help='dropout for encoder feed forward')
     parser.add_argument('--decoder_dropout', type=float, default=0.1, help='dropout for decoder feed forward')
-    parser.add_argument('--device', type=str, default='cpu', help='cpu or gpu depending on availability and compatability')
-    parser.add_argument('--epochs', type=int, default=10, help='number of iterations of dataset through network for training')
+    parser.add_argument('--device', type=str, default='cuda:0', help='cpu or gpu depending on availability and compatability')
+    parser.add_argument('--epochs', type=int, default=100, help='number of iterations of dataset through network for training')
 
     parser.add_argument('--saved_model_directory', type=str, default='saved_models/', help='data directory')
     args = parser.parse_args()

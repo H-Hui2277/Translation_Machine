@@ -5,6 +5,7 @@
 import re
 import unicodedata
 import torch
+import jieba
 
 from dictionary import Dictionary
 
@@ -21,8 +22,8 @@ def unicodeToAscii(s):
 
 def normalizeString(s):
     s = unicodeToAscii(s.lower().strip())
-    s = re.sub(r"([.!?])", r" \1", s)
-    s = re.sub(r"[^a-zA-Z.!?]+", r" ", s)
+    s = re.sub(r"([.!?,;:。、！？，；：])", r" \1", s)
+    s = re.sub(r"[^a-zA-Z.!?,;:。、！？，；：]+", r" ", s)
     return s
 
 #load language into lists of sentences where corresponding indeces are translations from
@@ -31,7 +32,7 @@ def normalizeString(s):
 #reverse controls with language is input and output
 #FALSE: lang1 is input and lang2 is output
 #TRUE: lang2 is input and lang1 is output
-def load_files(lang1, lang2, data_dir, reverse=True, MAX_FILE_SIZE=100000, MAX_LENGTH=60):
+def load_files(lang1, lang2, data_dir, reverse=True, MAX_FILE_SIZE=300000, MAX_LENGTH=60):
     #load first language to list
     lang1_list = []
     lang1_file = open(data_dir + '/' + lang1 + '-' + lang2 + '/' + lang1 + '.txt', 'r', encoding='utf8')
@@ -51,18 +52,26 @@ def load_files(lang1, lang2, data_dir, reverse=True, MAX_FILE_SIZE=100000, MAX_L
             break
 
     #preprocess strings
-    lang1_normalized = list(map(normalizeString, lang1_list))
-    lang2_normalized = list(map(normalizeString, lang2_list))
+    lang1_normalized = list(map(normalizeString, lang1_list)) if lang1 != 'chinese' else lang1_list
+    lang2_normalized = list(map(normalizeString, lang2_list)) if lang2 != 'chinese' else lang2_list
 
     lang1_sentences = []
     lang2_sentences = []
 
     for i in range(len(lang1_normalized)):
-        tokens1 = lang1_normalized[i].split(' ')
-        tokens2 = lang2_normalized[i].split(' ')
+        l1 = re.sub(r'\s+', '', lang1_normalized[i]) if lang1 == 'chinese' else lang1_normalized[i]
+        l2 = re.sub(r'\s+', '', lang2_normalized[i]) if lang2 == 'chinese' else lang2_normalized[i]
+        if lang1 == 'chinese':
+            tokens1 = list(jieba.cut(l1, cut_all=False))
+        else:
+            tokens1 = l1.split(' ') 
+        if lang2 == 'chinese':
+            tokens2 = list(jieba.cut(l2, cut_all=False))
+        else:
+            tokens2 = l2.split(' ')
         if len(tokens1) <= MAX_LENGTH and len(tokens2) <= MAX_LENGTH:
-            lang1_sentences.append(lang1_normalized[i])
-            lang2_sentences.append(lang2_normalized[i])
+            lang1_sentences.append(l1)
+            lang2_sentences.append(l2)
 
     del lang1_normalized
     del lang2_normalized
@@ -77,10 +86,19 @@ def load_files(lang1, lang2, data_dir, reverse=True, MAX_FILE_SIZE=100000, MAX_L
         return input_dic, output_dic, lang1_sentences, lang2_sentences
 
 #takes in a sentence and dictionary, and tokenizes based on dictionary
-def tokenize(sentence, dictionary, MAX_LENGTH=60):
-    split_sentence = [word for word in sentence.split(' ')]
+def tokenize(sentence, dictionary, MAX_LENGTH=60, lang='english'):
+    # print(sentence)
+    if lang == 'chinese':
+        split_sentence = [word for word in list(jieba.cut(sentence, cut_all=False))]
+    else :
+        split_sentence = [word for word in sentence.split(' ')]
     token = [SOS_TOKEN]
-    token += [dictionary.word2index[word] for word in sentence.split(' ')]
+    
+    # print(dictionary.word2index)
+    # print(split_sentence)
+    # print(dictionary.name)
+    token += [dictionary.word2index[word] for word in split_sentence]
+    
     token.append(EOS_TOKEN)
     token += [PAD_TOKEN]*(MAX_LENGTH - len(split_sentence))
     return token

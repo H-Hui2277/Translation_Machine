@@ -6,6 +6,8 @@
 #dictionary class that keeps track of all words in a given language as well as assigning a
 #token to them
 
+import jieba
+
 PAD_TOKEN = 0
 SOS_TOKEN = 1
 EOS_TOKEN = 2
@@ -20,6 +22,10 @@ class Dictionary:
         self.n_count = 3
 
     def add_sentence(self, sentence):
+        if self.name == 'chinese':
+            for word in list(jieba.cut(sentence, cut_all=False)): 
+                self.add_word(word)
+            return
         for word in sentence.split(' '):
             self.add_word(word)
 
